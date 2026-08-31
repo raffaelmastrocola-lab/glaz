@@ -1,13 +1,10 @@
 import { NextResponse } from "next/server";
-import { getRedis } from "../../../lib/redis";
+import { getState, setState } from "../../../lib/db";
 import { defaultState } from "../../../lib/defaultState";
-
-const KEY = "glaz:state";
 
 export async function GET() {
   try {
-    const redis = getRedis();
-    const stored = await redis.get(KEY);
+    const stored = await getState();
     return NextResponse.json(stored || defaultState());
   } catch (err) {
     return NextResponse.json(
@@ -24,8 +21,7 @@ export async function POST(req) {
   }
 
   try {
-    const redis = getRedis();
-    await redis.set(KEY, body);
+    await setState(body);
     return NextResponse.json({ ok: true });
   } catch (err) {
     return NextResponse.json(
