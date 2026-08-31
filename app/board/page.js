@@ -18,6 +18,13 @@ const PRIORITIES = [
   { id: "media", label: "Média" },
   { id: "baixa", label: "Baixa" },
 ];
+const CATEGORIES = [
+  { id: "produto", label: "Produto" },
+  { id: "marketing", label: "Marketing" },
+  { id: "financeiro", label: "Financeiro" },
+  { id: "juridico", label: "Jurídico" },
+  { id: "administrativo", label: "Administrativo" },
+];
 const WIP_LIMIT = 3;
 const POLL_MS = 4000;
 
@@ -29,6 +36,9 @@ function stage(id) {
 }
 function priLabel(id) {
   return (PRIORITIES.find((p) => p.id === id) || {}).label || id;
+}
+function catLabel(id) {
+  return (CATEGORIES.find((c) => c.id === id) || {}).label || id;
 }
 function uid() {
   return "t" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -122,7 +132,7 @@ export default function BoardPage() {
   const router = useRouter();
   const [state, setState] = useState(null);
   const [view, setView] = useState("kanban");
-  const [filters, setFilters] = useState({ q: "", assignees: [], priorities: [], statuses: [], tags: [] });
+  const [filters, setFilters] = useState({ q: "", assignees: [], priorities: [], statuses: [], categories: [], tags: [] });
   const [who, setWho] = useState(null);
   const [showIdentity, setShowIdentity] = useState(false);
   const [taskModal, setTaskModal] = useState(null); // { task } or { task: null } to create
@@ -318,6 +328,7 @@ export default function BoardPage() {
     if (filters.assignees.length && !filters.assignees.includes(t.assignee || "none")) return false;
     if (filters.priorities.length && !filters.priorities.includes(t.priority)) return false;
     if (filters.statuses.length && !filters.statuses.includes(t.status)) return false;
+    if (filters.categories.length && !filters.categories.includes(t.category || "none")) return false;
     if (filters.tags.length && !(t.tags || []).some((tag) => filters.tags.includes(tag))) return false;
     if (filters.q) {
       const hay = (t.title + " " + (t.tags || []).join(" ")).toLowerCase();
@@ -536,7 +547,8 @@ function FilterPanel({ filters, setFilters, allTags }) {
     };
   }, [open]);
 
-  const activeCount = filters.assignees.length + filters.priorities.length + filters.statuses.length + filters.tags.length;
+  const activeCount =
+    filters.assignees.length + filters.priorities.length + filters.statuses.length + filters.categories.length + filters.tags.length;
 
   function toggle(group, value) {
     setFilters((f) => {
@@ -547,7 +559,7 @@ function FilterPanel({ filters, setFilters, allTags }) {
   }
 
   function clearAll() {
-    setFilters((f) => ({ ...f, assignees: [], priorities: [], statuses: [], tags: [] }));
+    setFilters((f) => ({ ...f, assignees: [], priorities: [], statuses: [], categories: [], tags: [] }));
   }
 
   return (
@@ -566,8 +578,14 @@ function FilterPanel({ filters, setFilters, allTags }) {
           />
           <FilterGroup title="Prioridade" options={PRIORITIES.map((p) => ({ value: p.id, label: p.label }))} selected={filters.priorities} onToggle={(v) => toggle("priorities", v)} />
           <FilterGroup title="Status" options={STAGES.map((s) => ({ value: s.id, label: s.label }))} selected={filters.statuses} onToggle={(v) => toggle("statuses", v)} />
+          <FilterGroup
+            title="Área"
+            options={[...CATEGORIES.map((c) => ({ value: c.id, label: c.label })), { value: "none", label: "Sem área" }]}
+            selected={filters.categories}
+            onToggle={(v) => toggle("categories", v)}
+          />
           {allTags.length > 0 && (
-            <FilterGroup title="Categoria" options={allTags.map((t) => ({ value: t, label: t }))} selected={filters.tags} onToggle={(v) => toggle("tags", v)} scroll />
+            <FilterGroup title="Tags" options={allTags.map((t) => ({ value: t, label: t }))} selected={filters.tags} onToggle={(v) => toggle("tags", v)} scroll />
           )}
           {activeCount > 0 && (
             <button type="button" className="filter-clear" onClick={clearAll}>
@@ -651,6 +669,7 @@ function Card({ t, open, onToggleKebab, onCloseKebab, onOpen, onMove, onDelete, 
           {t.priority === "alta" && <Icon name="alert" />}
           {priLabel(t.priority)}
         </span>
+        {t.category && <span className={"cat-pill cat-" + t.category}>{catLabel(t.category)}</span>}
         {(t.tags || []).slice(0, 2).map((tag) => (
           <span className="tag" key={tag}>
             {tag}
@@ -695,6 +714,12 @@ function Dashboard({ state }) {
   const byPri = {};
   PRIORITIES.forEach((p) => (byPri[p.id] = tasks.filter((t) => t.priority === p.id && t.status !== "done").length));
   const maxPri = Math.max(...PRIORITIES.map((p) => byPri[p.id]), 1);
+
+  const uncategorized = tasks.filter((t) => !t.category).length;
+  const catRows = [...CATEGORIES, ...(uncategorized ? [{ id: "none", label: "Sem área" }] : [])];
+  const byCat = {};
+  catRows.forEach((c) => (byCat[c.id] = tasks.filter((t) => (t.category || "none") === c.id).length));
+  const maxCat = Math.max(...catRows.map((c) => byCat[c.id]), 1);
 
   const upcoming = tasks
     .filter((t) => t.dueDate && t.status !== "done")
@@ -741,6 +766,22 @@ function Dashboard({ state }) {
                   <span className="bar-fill" style={{ width: (byPri[p.id] / maxPri) * 100 + "%", background: "var(--pri-" + p.id + ")" }} />
                 </span>
                 <span className="bar-count num">{byPri[p.id]}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="panel">
+            <h3>Distribuição por área</h3>
+            {catRows.map((c) => (
+              <div className="bar-row" key={c.id}>
+                <span className="bar-label">{c.label}</span>
+                <span className="bar-track">
+                  <span
+                    className="bar-fill"
+                    style={{ width: (byCat[c.id] / maxCat) * 100 + "%", background: c.id === "none" ? "var(--ink-muted)" : "var(--cat-" + c.id + ")" }}
+                  />
+                </span>
+                <span className="bar-count num">{byCat[c.id]}</span>
               </div>
             ))}
           </div>
@@ -820,6 +861,7 @@ function TaskModal({ task, onClose, onSave, onDelete }) {
   const [description, setDescription] = useState(t ? t.description : "");
   const [status, setStatus] = useState(t ? t.status : "todo");
   const [priority, setPriority] = useState(t ? t.priority : "media");
+  const [category, setCategory] = useState(t && t.category ? t.category : "");
   const [assignee, setAssignee] = useState(t && t.assignee ? t.assignee : "");
   const [dueDate, setDueDate] = useState(t && t.dueDate ? t.dueDate : "");
   const [tagsText, setTagsText] = useState(t ? (t.tags || []).join(", ") : "");
@@ -855,6 +897,7 @@ function TaskModal({ task, onClose, onSave, onDelete }) {
       description: description.trim(),
       status,
       priority,
+      category: category || null,
       assignee: assignee || null,
       dueDate: dueDate || null,
       tags: tagsText
@@ -905,6 +948,17 @@ function TaskModal({ task, onClose, onSave, onDelete }) {
 
         <div className="field-row">
           <div className="field">
+            <label htmlFor="f-category">Área</label>
+            <select id="f-category" value={category} onChange={(e) => setCategory(e.target.value)}>
+              <option value="">Sem área</option>
+              {CATEGORIES.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="field">
             <label htmlFor="f-assignee">Responsável</label>
             <select id="f-assignee" value={assignee} onChange={(e) => setAssignee(e.target.value)}>
               <option value="">Ninguém</option>
@@ -915,10 +969,11 @@ function TaskModal({ task, onClose, onSave, onDelete }) {
               ))}
             </select>
           </div>
-          <div className="field">
-            <label htmlFor="f-due">Prazo</label>
-            <input id="f-due" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
-          </div>
+        </div>
+
+        <div className="field">
+          <label htmlFor="f-due">Prazo</label>
+          <input id="f-due" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
         </div>
 
         <div className="field">
