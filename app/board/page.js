@@ -63,6 +63,7 @@ const ICON_PATHS = {
   trash: "M4 6h12M8 6V4.5A1.5 1.5 0 019.5 3h1A1.5 1.5 0 0112 4.5V6m-6.5 0l.6 9.4A1.5 1.5 0 007.6 17h4.8a1.5 1.5 0 001.5-1.6L14.5 6",
   alert: "M10 3l8.5 14.5H1.5L10 3zM10 8.5v4M10 15h.01",
   list: "M4 5h12M4 10h12M4 15h8",
+  filter: "M3 4.5h14L11.5 10.2V15l-3 1.5v-6.3L3 4.5z",
 };
 
 function Icon({ name }) {
@@ -121,7 +122,7 @@ export default function BoardPage() {
   const router = useRouter();
   const [state, setState] = useState(null);
   const [view, setView] = useState("kanban");
-  const [filters, setFilters] = useState({ q: "", assignee: "all", priority: "all" });
+  const [filters, setFilters] = useState({ q: "", assignees: [], priorities: [], statuses: [], tags: [] });
   const [who, setWho] = useState(null);
   const [showIdentity, setShowIdentity] = useState(false);
   const [taskModal, setTaskModal] = useState(null); // { task } or { task: null } to create
@@ -311,9 +312,13 @@ export default function BoardPage() {
     );
   }
 
+  const allTags = Array.from(new Set(state.tasks.flatMap((t) => t.tags || []))).sort((a, b) => a.localeCompare(b, "pt-BR"));
+
   const filteredTasks = state.tasks.filter((t) => {
-    if (filters.assignee !== "all" && t.assignee !== filters.assignee) return false;
-    if (filters.priority !== "all" && t.priority !== filters.priority) return false;
+    if (filters.assignees.length && !filters.assignees.includes(t.assignee || "none")) return false;
+    if (filters.priorities.length && !filters.priorities.includes(t.priority)) return false;
+    if (filters.statuses.length && !filters.statuses.includes(t.status)) return false;
+    if (filters.tags.length && !(t.tags || []).some((tag) => filters.tags.includes(tag))) return false;
     if (filters.q) {
       const hay = (t.title + " " + (t.tags || []).join(" ")).toLowerCase();
       if (hay.indexOf(filters.q.toLowerCase()) === -1) return false;
@@ -353,6 +358,7 @@ export default function BoardPage() {
             }}
             draggingId={draggingId}
             readOnly={readOnly}
+            allTags={allTags}
           />
         ) : (
           <Dashboard state={state} />
@@ -428,8 +434,9 @@ function Topbar({ project, view, setView, who, onIdentity, onNewTask, onLogout, 
   );
 }
 
-function Kanban({ tasks, filters, setFilters, openKebab, setOpenKebab, onOpenTask, onMoveTask, onDeleteTask, draggingId, readOnly }) {
+function Kanban({ tasks, filters, setFilters, openKebab, setOpenKebab, onOpenTask, onMoveTask, onDeleteTask, draggingId, readOnly, allTags }) {
   const [dragOverCol, setDragOverCol] = useState(null);
+  const visibleStages = STAGES.filter((s) => filters.statuses.length === 0 || filters.statuses.includes(s.id));
 
   return (
     <>
@@ -444,30 +451,11 @@ function Kanban({ tasks, filters, setFilters, openKebab, setOpenKebab, onOpenTas
             aria-label="Buscar tarefas"
           />
         </div>
-        <div className="chipset" role="group" aria-label="Filtrar por responsável">
-          <button className="chip" aria-pressed={filters.assignee === "all"} onClick={() => setFilters({ ...filters, assignee: "all" })}>
-            Todos
-          </button>
-          {MEMBERS.map((m) => (
-            <button key={m.id} className="chip" aria-pressed={filters.assignee === m.id} onClick={() => setFilters({ ...filters, assignee: m.id })}>
-              {m.name}
-            </button>
-          ))}
-        </div>
-        <div className="chipset" role="group" aria-label="Filtrar por prioridade">
-          <button className="chip" aria-pressed={filters.priority === "all"} onClick={() => setFilters({ ...filters, priority: "all" })}>
-            Toda prioridade
-          </button>
-          {PRIORITIES.map((p) => (
-            <button key={p.id} className="chip" aria-pressed={filters.priority === p.id} onClick={() => setFilters({ ...filters, priority: p.id })}>
-              {p.label}
-            </button>
-          ))}
-        </div>
+        <FilterPanel filters={filters} setFilters={setFilters} allTags={allTags} />
       </div>
 
       <div className="board">
-        {STAGES.map((s) => {
+        {visibleStages.map((s) => {
           const colTasks = tasks.filter((t) => t.status === s.id);
           const isDoing = s.id === "doing";
           const overLimit = isDoing && colTasks.length > WIP_LIMIT;
@@ -525,6 +513,86 @@ function Kanban({ tasks, filters, setFilters, openKebab, setOpenKebab, onOpenTas
         })}
       </div>
     </>
+  );
+}
+
+function FilterPanel({ filters, setFilters, allTags }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDocClick(e) {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    }
+    function onKey(e) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("click", onDocClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("click", onDocClick);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const activeCount = filters.assignees.length + filters.priorities.length + filters.statuses.length + filters.tags.length;
+
+  function toggle(group, value) {
+    setFilters((f) => {
+      const list = f[group];
+      const next = list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
+      return { ...f, [group]: next };
+    });
+  }
+
+  function clearAll() {
+    setFilters((f) => ({ ...f, assignees: [], priorities: [], statuses: [], tags: [] }));
+  }
+
+  return (
+    <div className="filter-menu" ref={ref}>
+      <button type="button" className="btn btn-ghost" aria-haspopup="true" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+        <Icon name="filter" /> Filtros
+        {activeCount > 0 && <span className="filter-count">{activeCount}</span>}
+      </button>
+      {open && (
+        <div className="filter-panel">
+          <FilterGroup
+            title="Responsável"
+            options={[...MEMBERS.map((m) => ({ value: m.id, label: m.name })), { value: "none", label: "Sem responsável" }]}
+            selected={filters.assignees}
+            onToggle={(v) => toggle("assignees", v)}
+          />
+          <FilterGroup title="Prioridade" options={PRIORITIES.map((p) => ({ value: p.id, label: p.label }))} selected={filters.priorities} onToggle={(v) => toggle("priorities", v)} />
+          <FilterGroup title="Status" options={STAGES.map((s) => ({ value: s.id, label: s.label }))} selected={filters.statuses} onToggle={(v) => toggle("statuses", v)} />
+          {allTags.length > 0 && (
+            <FilterGroup title="Categoria" options={allTags.map((t) => ({ value: t, label: t }))} selected={filters.tags} onToggle={(v) => toggle("tags", v)} scroll />
+          )}
+          {activeCount > 0 && (
+            <button type="button" className="filter-clear" onClick={clearAll}>
+              Limpar filtros
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FilterGroup({ title, options, selected, onToggle, scroll }) {
+  return (
+    <div className="filter-group">
+      <div className="filter-group-title">{title}</div>
+      <div className={"filter-options" + (scroll ? " scroll" : "")}>
+        {options.map((opt) => (
+          <label className="filter-check" key={opt.value}>
+            <input type="checkbox" checked={selected.includes(opt.value)} onChange={() => onToggle(opt.value)} />
+            <span>{opt.label}</span>
+          </label>
+        ))}
+      </div>
+    </div>
   );
 }
 

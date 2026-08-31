@@ -239,13 +239,28 @@ main{ flex:1; padding:20px 24px 40px; max-width:1400px; width:100%; margin:0 aut
   border-radius:9px; padding:8px 12px; min-width:220px; color:var(--ink-muted);
 }
 .search input{ border:0; background:none; outline:0; width:100%; color:var(--ink); }
-.chipset{ display:flex; gap:6px; flex-wrap:wrap; }
-.chip{
-  border:1px solid var(--border); background:var(--card); color:var(--ink-secondary);
-  border-radius:999px; padding:6px 12px; font-size:12.5px; font-weight:600;
-  display:flex; align-items:center; gap:6px; transition:background .15s ease,border-color .15s ease,color .15s ease;
+
+.filter-menu{ position:relative; }
+.filter-count{
+  display:inline-flex; align-items:center; justify-content:center; min-width:17px; height:17px; padding:0 4px;
+  border-radius:999px; background:var(--primary); color:var(--primary-ink); font-size:10.5px; font-weight:700;
 }
-.chip[aria-pressed="true"]{ background:var(--primary); border-color:var(--primary); color:var(--primary-ink); }
+.filter-panel{
+  position:absolute; left:0; top:calc(100% + 6px); z-index:30; width:240px;
+  background:var(--card); border:1px solid var(--border); border-radius:12px; box-shadow:var(--shadow-modal);
+  padding:14px; display:flex; flex-direction:column; gap:14px;
+}
+.filter-group-title{ font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-muted); margin-bottom:7px; }
+.filter-options{ display:flex; flex-direction:column; gap:2px; }
+.filter-options.scroll{ max-height:140px; overflow-y:auto; }
+.filter-check{ display:flex; align-items:center; gap:9px; padding:5px 4px; border-radius:6px; font-size:13px; font-weight:500; }
+.filter-check:hover{ background:var(--bg-plane); }
+.filter-check input{ width:16px; height:16px; accent-color:var(--primary); flex:none; }
+.filter-clear{
+  border:1px solid var(--border); background:none; color:var(--ink-secondary); border-radius:8px;
+  padding:8px; font-size:12.5px; font-weight:700; text-align:center;
+}
+.filter-clear:hover{ background:var(--bg-plane); color:var(--ink); }
 
 /* ---------- Kanban ---------- */
 .board{ display:flex; gap:14px; align-items:flex-start; overflow-x:auto; padding-bottom:8px; }
