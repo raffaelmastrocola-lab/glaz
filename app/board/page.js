@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 const MEMBERS = [
-  { id: "rafael", name: "Rafael", initials: "RM", color: "var(--member-rafael)" },
+  { id: "rafael", name: "Raffael", initials: "RM", color: "var(--member-rafael)" },
   { id: "cassius", name: "Cassius", initials: "CS", color: "var(--member-cassius)" },
 ];
 const STAGES = [

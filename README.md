@@ -17,7 +17,7 @@ Quadro Kanban e painel de gestão de tarefas compartilhado, com login por senha 
 - O estado do quadro (tarefas e atividade) fica salvo no Postgres, numa única linha em formato JSON.
 - Cada navegador consulta o estado a cada poucos segundos e salva alterações automaticamente — não é preciso "sincronizar" manualmente.
 - A autenticação é uma senha única compartilhada (sem contas individuais), pensada para uso interno entre poucas pessoas de confiança — não é um sistema de autenticação robusto para dados sensíveis.
-- "Quem é você" (Rafael/Cassius) é só uma preferência salva no navegador, usada para atribuir tarefas e o log de atividade — troque a qualquer momento pelo link "trocar" no topo.
+- "Quem é você" (Raffael/Cassius) é só uma preferência salva no navegador, usada para atribuir tarefas e o log de atividade — troque a qualquer momento pelo link "trocar" no topo.
 
 ## Rodar localmente
 
