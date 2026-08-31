@@ -128,6 +128,7 @@ export default function BoardPage() {
   const [openKebab, setOpenKebab] = useState(null);
   const [toastMsg, setToastMsg] = useState("");
   const [readOnly, setReadOnly] = useState(false);
+  const [loadError, setLoadError] = useState(null);
 
   const saveTimer = useRef(null);
   const pollTimer = useRef(null);
@@ -154,12 +155,23 @@ export default function BoardPage() {
         }
         if (res.ok) {
           const data = await res.json();
+          setLoadError(null);
           setState((prev) => (modalOpenRef.current ? prev : data));
-        } else if (!silent) {
-          showToast("Não foi possível carregar o quadro.");
+        } else {
+          const body = await res.json().catch(() => null);
+          const detail = body && body.message ? body.message : "Erro " + res.status;
+          setState((prev) => {
+            if (prev === null) setLoadError(detail);
+            else if (!silent) showToast("Não foi possível carregar o quadro.");
+            return prev;
+          });
         }
       } catch {
-        if (!silent) showToast("Sem conexão.");
+        setState((prev) => {
+          if (prev === null) setLoadError("Sem conexão com o servidor.");
+          else if (!silent) showToast("Sem conexão.");
+          return prev;
+        });
       }
     },
     [router, showToast]
@@ -281,7 +293,20 @@ export default function BoardPage() {
   if (!state) {
     return (
       <div className="login-shell">
-        <p style={{ color: "var(--ink-muted)" }}>Carregando quadro...</p>
+        {loadError ? (
+          <div className="login-card">
+            <div className="brand-mark">G</div>
+            <h1>Não foi possível carregar o quadro</h1>
+            <p className="login-error" style={{ margin: "0 0 18px" }}>
+              {loadError}
+            </p>
+            <button className="btn btn-primary" style={{ width: "100%", justifyContent: "center" }} onClick={() => load(false)}>
+              Tentar novamente
+            </button>
+          </div>
+        ) : (
+          <p style={{ color: "var(--ink-muted)" }}>Carregando quadro...</p>
+        )}
       </div>
     );
   }
